@@ -11,15 +11,15 @@ from datetime import date
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 def load_config():
-    with open("config.yml", "r") as f:
+    with open("config/config.yml", "r") as f:
         return yaml.safe_load(f)
 
 def load_subreddits():
-    with open("subreddits.txt", "r") as f:
+    with open("config/subreddits.txt", "r") as f:
         return [line.strip() for line in f if line.strip()]
 
 def load_prompt():
-    with open("prompt.txt", "r") as f:
+    with open("config/prompt.txt", "r") as f:
         return f.read()
 
 def fetch_posts(subreddits, limit, min_score):
