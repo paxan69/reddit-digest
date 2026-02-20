@@ -1,4 +1,4 @@
-from google import genai
+from groq import Groq
 import feedparser
 import smtplib
 from email.mime.text import MIMEText
@@ -10,7 +10,7 @@ import os
 # ==============================
 SUBREDDITS = ["MachineLearning", "entrepreneur", "investing"]
 
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 def fetch_posts():
     print("Fetching posts...")
@@ -26,7 +26,7 @@ def fetch_posts():
     return "\n\n---\n\n".join(posts)
 
 def summarize(posts):
-    print("Summarizing with Gemini...")
+    print("Summarizing with Groq...")
     prompt = f"""You are a daily briefing assistant. Analyze these Reddit posts from today and produce a clean, useful digest.
 
 Structure your response as:
@@ -47,11 +47,13 @@ Be direct, specific, and opinionated. Avoid vague advice.
 
 Reddit posts:
 {posts}"""
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1000
     )
-    return response.text
+    return response.choices[0].message.content
 
 def send_email(summary):
     print("Sending email...")
