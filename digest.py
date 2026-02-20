@@ -170,5 +170,3 @@ if __name__ == "__main__":
             raise RuntimeError("No posts fetched from any subreddit.")
 
         summary = summarize(posts, max_tokens=config["max_tokens"])
-
-        p
