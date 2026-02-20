@@ -1,78 +1,174 @@
 from groq import Groq
 import feedparser
 import smtplib
+import yaml
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
-
-# ==============================
-# EDIT YOUR SUBREDDITS HERE
-# ==============================
-SUBREDDITS = ["MachineLearning", "entrepreneur", "investing"]
+import re
+from datetime import date
 
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-def fetch_posts():
+def load_config():
+    with open("config.yml", "r") as f:
+        return yaml.safe_load(f)
+
+def load_subreddits():
+    with open("subreddits.txt", "r") as f:
+        return [line.strip() for line in f if line.strip()]
+
+def load_prompt():
+    with open("prompt.txt", "r") as f:
+        return f.read()
+
+def fetch_posts(subreddits, limit, min_score):
     print("Fetching posts...")
     posts = []
-    for sub in SUBREDDITS:
-        url = f"https://www.reddit.com/r/{sub}/top.rss?t=day&limit=10"
-        feed = feedparser.parse(url)
-        for entry in feed.entries[:10]:
-            title = entry.title
-            summary = entry.summary[:300] if hasattr(entry, "summary") else ""
-            posts.append(f"[r/{sub}] {title}\n{summary}")
-        print(f"  r/{sub}: {len(feed.entries)} posts fetched")
+    seen_titles = set()
+
+    for sub in subreddits:
+        try:
+            url = f"https://www.reddit.com/r/{sub}/top.rss?t=day&limit={limit}"
+            feed = feedparser.parse(url)
+
+            if not feed.entries:
+                print(f"  r/{sub}: no posts found, skipping")
+                continue
+
+            count = 0
+            for entry in feed.entries:
+                title = entry.title.strip()
+
+                # Skip duplicates across subreddits
+                if title.lower() in seen_titles:
+                    continue
+                seen_titles.add(title.lower())
+
+                # Skip low score posts (score is in the summary HTML)
+                score = extract_score(entry)
+                if score is not None and score < min_score:
+                    continue
+
+                summary = entry.summary[:500] if hasattr(entry, "summary") else ""
+                link = entry.link if hasattr(entry, "link") else ""
+                posts.append(f"[r/{sub}] {title}\nURL: {link}\nScore: {score}\n{summary}")
+                count += 1
+
+            print(f"  r/{sub}: {count} posts fetched")
+
+        except Exception as e:
+            print(f"  r/{sub}: failed to fetch — {e}")
+            continue
+
     return "\n\n---\n\n".join(posts)
 
-def summarize(posts):
+def extract_score(entry):
+    # Reddit RSS embeds the score in the summary HTML
+    try:
+        match = re.search(r"(\d+) point", entry.summary)
+        if match:
+            return int(match.group(1))
+    except Exception:
+        pass
+    return None
+
+def summarize(posts, max_tokens):
     print("Summarizing with Groq...")
-    prompt = f"""You are a daily briefing assistant. Analyze these Reddit posts from today and produce a clean, useful digest.
+    try:
+        prompt = load_prompt()
+        full_prompt = f"{prompt}\n\nReddit posts:\n{posts}"
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": full_prompt}],
+            max_tokens=max_tokens
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        raise RuntimeError(f"Groq summarization failed: {e}")
 
-Structure your response as:
+def to_html(text):
+    # Convert markdown-style output to clean HTML
+    lines = text.split("\n")
+    html_lines = []
+    for line in lines:
+        if line.startswith("## "):
+            html_lines.append(f"<h2>{line[3:]}</h2>")
+        elif line.startswith("### "):
+            html_lines.append(f"<h3>{line[4:]}</h3>")
+        elif line.startswith("- **") or line.startswith("- "):
+            content = line[2:]
+            content = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", content)
+            # Make URLs clickable
+            content = re.sub(r"(https?://\S+)", r'<a href="\1">\1</a>', content)
+            html_lines.append(f"<li>{content}</li>")
+        elif line.strip() == "":
+            html_lines.append("<br>")
+        else:
+            line = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", line)
+            line = re.sub(r"(https?://\S+)", r'<a href="\1">\1</a>', line)
+            html_lines.append(f"<p>{line}</p>")
 
-## 🔥 Key Trends
-(2-3 bullet points on what topics are dominating today)
+    body = "\n".join(html_lines)
+    return f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 700px; margin: auto; padding: 20px; color: #222;">
+        <h1 style="border-bottom: 2px solid #ff4500; padding-bottom: 10px;">
+            📰 Daily Reddit Digest — {date.today().strftime("%B %d, %Y")}
+        </h1>
+        {body}
+        <hr>
+        <p style="color: #999; font-size: 12px;">Generated automatically from r/{", r/".join(load_subreddits())}</p>
+    </body>
+    </html>
+    """
 
-## ✅ Actionable Insights
-(3-5 specific things I can act on today based on what people are discussing)
-
-## 📌 Must-Read Posts
-(Top 3 posts worth my time, with a one-line summary of why each matters)
-
-## 🗑️ What to Skip
-(What's just noise or not worth time today)
-
-Be direct, specific, and opinionated. Avoid vague advice.
-
-Reddit posts:
-{posts}"""
-
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000
-    )
-    return response.choices[0].message.content
-
-def send_email(summary):
+def send_email(summary, email_to):
     print("Sending email...")
+    today = date.today().strftime("%B %d, %Y")
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "📰 Your Daily Reddit Digest"
+    msg["Subject"] = f"📰 Daily Reddit Digest — {today}"
     msg["From"] = os.environ["EMAIL_ADDRESS"]
-    msg["To"] = os.environ["EMAIL_ADDRESS"]
+    msg["To"] = email_to
+
+    # Plain text fallback
     msg.attach(MIMEText(summary, "plain"))
+    # HTML version
+    msg.attach(MIMEText(to_html(summary), "html"))
+
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(os.environ["EMAIL_ADDRESS"], os.environ["EMAIL_APP_PASSWORD"])
         server.send_message(msg)
     print("✅ Email sent successfully!")
 
+def send_error_email(error):
+    print("Sending error notification...")
+    msg = MIMEMultipart()
+    msg["Subject"] = "⚠️ Reddit Digest Failed"
+    msg["From"] = os.environ["EMAIL_ADDRESS"]
+    msg["To"] = os.environ["EMAIL_ADDRESS"]
+    msg.attach(MIMEText(f"Your daily Reddit digest failed with this error:\n\n{error}", "plain"))
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(os.environ["EMAIL_ADDRESS"], os.environ["EMAIL_APP_PASSWORD"])
+            server.send_message(msg)
+    except Exception as e:
+        print(f"Could not send error email: {e}")
+
 if __name__ == "__main__":
-    posts = fetch_posts()
-    if not posts:
-        print("No posts found. Exiting.")
-        exit(1)
-    summary = summarize(posts)
-    print("\n--- SUMMARY PREVIEW ---")
-    print(summary)
-    send_email(summary)
+    try:
+        config = load_config()
+        subreddits = load_subreddits()
+
+        posts = fetch_posts(
+            subreddits,
+            limit=config["posts_per_subreddit"],
+            min_score=config["min_score"]
+        )
+
+        if not posts:
+            raise RuntimeError("No posts fetched from any subreddit.")
+
+        summary = summarize(posts, max_tokens=config["max_tokens"])
+
+        p
