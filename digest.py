@@ -22,7 +22,8 @@ def load_prompt():
     with open("config/prompt.txt", "r") as f:
         return f.read()
 
-def fetch_posts(subreddits, limit, min_score):
+
+ def fetch_posts(subreddits, limit, min_score):
     print("Fetching posts...")
     posts = []
     seen_titles = set()
@@ -40,19 +41,27 @@ def fetch_posts(subreddits, limit, min_score):
             for entry in feed.entries:
                 title = entry.title.strip()
 
-                # Skip duplicates across subreddits
                 if title.lower() in seen_titles:
                     continue
                 seen_titles.add(title.lower())
 
-                # Skip low score posts (score is in the summary HTML)
                 score = extract_score(entry)
                 if score is not None and score < min_score:
                     continue
 
                 summary = entry.summary[:500] if hasattr(entry, "summary") else ""
                 link = entry.link if hasattr(entry, "link") else ""
-                posts.append(f"[r/{sub}] {title}\nURL: {link}\nScore: {score}\n{summary}")
+
+                # Fetch top comments via JSON API
+                comments = fetch_comments(link)
+
+                posts.append(
+                    f"[r/{sub}] {title}\n"
+                    f"URL: {link}\n"
+                    f"Score: {score}\n"
+                    f"Post: {summary}\n"
+                    f"Top comments:\n{comments}"
+                )
                 count += 1
 
             print(f"  r/{sub}: {count} posts fetched")
@@ -63,6 +72,25 @@ def fetch_posts(subreddits, limit, min_score):
 
     return "\n\n---\n\n".join(posts)
 
+def fetch_comments(post_url):
+    import requests
+    import time
+    try:
+        json_url = post_url.rstrip("/") + ".json?limit=5&sort=top"
+        headers = {"User-Agent": "daily-digest-bot/1.0"}
+        time.sleep(1)  # be polite to Reddit
+        r = requests.get(json_url, headers=headers, timeout=10)
+        data = r.json()
+        comments = []
+        for comment in data[1]["data"]["children"][:5]:
+            body = comment["data"].get("body", "")
+            score = comment["data"].get("score", 0)
+            if body and body != "[deleted]" and body != "[removed]":
+                comments.append(f"  • (↑{score}) {body[:300]}")
+        return "\n".join(comments) if comments else "  No comments available"
+    except Exception as e:
+        return f"  Could not fetch comments: {e}"
+        
 def extract_score(entry):
     # Reddit RSS embeds the score in the summary HTML
     try:
