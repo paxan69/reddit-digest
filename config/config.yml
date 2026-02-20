@@ -1,0 +1,4 @@
+posts_per_subreddit: 10
+min_score: 10
+max_tokens: 2000
+email_to: alushnikov73+reddit@gmail.com
