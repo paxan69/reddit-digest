@@ -23,7 +23,7 @@ def load_prompt():
         return f.read()
 
 
- def fetch_posts(subreddits, limit, min_score):
+def fetch_posts(subreddits, limit, min_score):
     print("Fetching posts...")
     posts = []
     seen_titles = set()
