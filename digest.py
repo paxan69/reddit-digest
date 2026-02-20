@@ -1,5 +1,5 @@
+from google import genai
 import feedparser
-import google.generativeai as genai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -8,11 +8,9 @@ import os
 # ==============================
 # EDIT YOUR SUBREDDITS HERE
 # ==============================
-SUBREDDITS = ["MachineLearning", "entrepreneur", "investing", "kettlebell"]
+SUBREDDITS = ["MachineLearning", "entrepreneur", "investing"]
 
-# Gemini setup
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-2.0-flash-lite")
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 def fetch_posts():
     print("Fetching posts...")
@@ -49,7 +47,10 @@ Be direct, specific, and opinionated. Avoid vague advice.
 
 Reddit posts:
 {posts}"""
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt
+    )
     return response.text
 
 def send_email(summary):
@@ -58,11 +59,7 @@ def send_email(summary):
     msg["Subject"] = "📰 Your Daily Reddit Digest"
     msg["From"] = os.environ["EMAIL_ADDRESS"]
     msg["To"] = os.environ["EMAIL_ADDRESS"]
-
-    # Plain text version
-    text_part = MIMEText(summary, "plain")
-    msg.attach(text_part)
-
+    msg.attach(MIMEText(summary, "plain"))
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(os.environ["EMAIL_ADDRESS"], os.environ["EMAIL_APP_PASSWORD"])
         server.send_message(msg)
@@ -77,4 +74,3 @@ if __name__ == "__main__":
     print("\n--- SUMMARY PREVIEW ---")
     print(summary)
     send_email(summary)
-
