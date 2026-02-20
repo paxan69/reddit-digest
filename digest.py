@@ -170,3 +170,13 @@ if __name__ == "__main__":
             raise RuntimeError("No posts fetched from any subreddit.")
 
         summary = summarize(posts, max_tokens=config["max_tokens"])
+
+        print("\n--- SUMMARY PREVIEW ---")
+        print(summary)
+
+        send_email(summary, email_to=config["email_to"])
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        send_error_email(str(e))
+        exit(1)
