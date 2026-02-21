@@ -76,20 +76,32 @@ def fetch_comments(post_url):
     import requests
     import time
     try:
-        json_url = post_url.rstrip("/") + ".json?limit=5&sort=top"
-        headers = {"User-Agent": "daily-digest-bot/1.0"}
-        time.sleep(1)  # be polite to Reddit
-        r = requests.get(json_url, headers=headers, timeout=10)
+        # Clean up URL — strip trailing slash and anything after the post ID
+        clean_url = "/".join(post_url.rstrip("/").split("/")[:7])
+        json_url = clean_url + ".json?limit=5&sort=top"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; daily-digest-bot/1.0; +https://github.com)",
+            "Accept": "application/json"
+        }
+        time.sleep(2)
+        r = requests.get(json_url, headers=headers, timeout=15)
+        print(f"  Comments status: {r.status_code} for {json_url}")
+        if r.status_code != 200:
+            return f"  Could not fetch comments (status {r.status_code})"
         data = r.json()
         comments = []
         for comment in data[1]["data"]["children"][:5]:
+            kind = comment.get("kind", "")
+            if kind != "t1":  # t1 = comment, skip "more" objects
+                continue
             body = comment["data"].get("body", "")
             score = comment["data"].get("score", 0)
-            if body and body != "[deleted]" and body != "[removed]":
+            if body and body not in ("[deleted]", "[removed]"):
                 comments.append(f"  • (↑{score}) {body[:300]}")
-        return "\n".join(comments) if comments else "  No comments available"
+        return "\n".join(comments) if comments else "  No comments found"
     except Exception as e:
         return f"  Could not fetch comments: {e}"
+        
         
 def extract_score(entry):
     # Reddit RSS embeds the score in the summary HTML
