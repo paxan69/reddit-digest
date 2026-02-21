@@ -9,7 +9,7 @@ A post is valuable if it meets one or more of these criteria:
 
 Skip posts that are: just news links with no discussion, rants without insight, motivational fluff, or questions with no good answers in the comments.
 
-From the posts provided select the top 7 most valuable ones based on the criteria above. If multiple subreddits are present try to include at least one post from each.
+From the posts provided select the top 10 most valuable ones based on the criteria above. If multiple subreddits are present try to include at least one post from each.
 
 For each selected post write:
 
