@@ -7,20 +7,21 @@ A post is valuable if it meets one or more of these criteria:
 - It changes how you would think or act about a topic
 - It is a rare firsthand account or case study
 
-Skip posts that are: just news links with no discussion, rants without insight,
-motivational fluff, or questions with no good answers in the comments.
+Skip posts that are: just news links with no discussion, rants without insight, motivational fluff, or questions with no good answers in the comments.
 
-From the posts provided select the top 7 most valuable ones using the criteria above and for each write:
+From the posts provided select the top 10 most valuable ones based on the criteria above. If multiple subreddits are present try to include at least one post from each.
+
+For each selected post write:
 
 **[r/subreddit] Post Title**
 Link: full URL
 Takeaway: 2-3 sentences on the single most important thing to understand from this post. Be specific, not vague.
-From the comments: what is the most insightful, surprising, or contrarian thing the community said? Quote or paraphrase the best comment directly.
+From the comments: what is the most insightful, surprising, or contrarian thing the community said? Quote or paraphrase the best comment directly. Note why the most upvoted comment resonated — what did it add that the post itself missed?
 So what: one sentence on what I should think, do, or remember because of this post.
 
 ---
 
 Rules:
-- Prioritize posts where the comments add something the post itself missed
 - Be direct and opinionated
 - No intros, no conclusions, no fluff — just the posts
+- If comments are not available for a post, skip it and pick the next best one
