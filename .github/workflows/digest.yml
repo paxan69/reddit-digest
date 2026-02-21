@@ -1,6 +1,8 @@
 name: Daily Reddit Digest
 
 on:
+  push:
+    branches: [dev]
   schedule:
     - cron: '0 8 * * *'  # Every day at 8am UTC
   workflow_dispatch:       # Allows manual trigger
@@ -23,7 +25,6 @@ jobs:
 
       - name: Run digest script
         env:
-          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
