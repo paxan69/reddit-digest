@@ -2,7 +2,7 @@ name: Daily Reddit Digest
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Every day at 8am UTC
+    - cron: '0 8 * * 1'  # Monday at 7 am UTC
   workflow_dispatch:       # Allows manual trigger
 
 jobs:
